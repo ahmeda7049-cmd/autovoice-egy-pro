@@ -29,3 +29,17 @@ export interface ConnectionConfig {
   deviceName?: string;
   statusMessage?: string;
 }
+
+export interface ScanReport {
+  id: string;
+  createdAt: string;
+  formattedDate: string;
+  faults: DTCFault[];
+  vitals?: {
+    rpm: string;
+    coolant: string;
+    pressure: string;
+  };
+  status: 'healthy' | 'issues';
+}
+
