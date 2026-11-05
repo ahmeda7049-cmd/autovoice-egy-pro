@@ -31,7 +31,9 @@ import {
   WifiOff,
   Download,
   Smartphone,
-  Zap
+  Zap,
+  Package,
+  ExternalLink
 } from 'lucide-react';
 import { ConnectionStatus, DTCFault, EngineVitals, ScanReport } from './types/obd';
 import { obdService } from './services/bluetoothOBD';
@@ -277,6 +279,7 @@ export default function App() {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const isOnline = useOnlineStatus();
   const [showInstallModal, setShowInstallModal] = useState(false);
+  const [showApkModal, setShowApkModal] = useState(false);
 
   const handleInstallClick = async () => {
     if (isInstallable) {
@@ -486,6 +489,16 @@ export default function App() {
               </button>
             )}
 
+            {/* APK Download Button */}
+            <button
+              onClick={() => setShowApkModal(true)}
+              className="p-2 sm:px-3 rounded-xl border border-amber-500/40 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 transition cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-sm"
+              title="تحميل وتثبيت ملف APK للأندرويد"
+            >
+              <Package className="w-4 h-4" />
+              <span className="hidden sm:inline">تحميل APK</span>
+            </button>
+
             {/* Share App Button */}
             <button
               onClick={handleShareClick}
@@ -590,20 +603,30 @@ export default function App() {
             </div>
           </div>
 
-          {!isInstalled ? (
+          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
             <button
-              onClick={handleInstallClick}
-              className="self-end sm:self-center px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 shadow-md"
+              onClick={() => setShowApkModal(true)}
+              className="px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-sm"
             >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>تثبيت التطبيق على الهاتف</span>
+              <Package className="w-3.5 h-3.5" />
+              <span>ملف APK</span>
             </button>
-          ) : (
-            <span className="self-end sm:self-center text-xs font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shrink-0">
-              <Check className="w-3.5 h-3.5" />
-              <span>مثبت على الهاتف ✓</span>
-            </span>
-          )}
+
+            {!isInstalled ? (
+              <button
+                onClick={handleInstallClick}
+                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-md"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span>تثبيت التطبيق</span>
+              </button>
+            ) : (
+              <span className="text-xs font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5" />
+                <span>مثبت على الهاتف ✓</span>
+              </span>
+            )}
+          </div>
         </div>
 
         {/* ========================================================= */}
@@ -1318,6 +1341,93 @@ export default function App() {
               className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
             >
               فهمت، حسناً
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* APK Download & Installation Modal */}
+      {showApkModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl relative text-right">
+            
+            {/* Close Button */}
+            <button
+              onClick={() => setShowApkModal(false)}
+              className="absolute top-5 left-5 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                <Package className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white">تثبيت وتحميل ملف التطبيق (APK)</h3>
+                <p className="text-xs text-slate-400">تطبيق أندرويد حقيقي يثبت على هاتفك ويعمل بالبلوتوث بدون نت</p>
+              </div>
+            </div>
+
+            {/* Option 1: Direct Android WebAPK Install */}
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-400">
+                  الطريقة 1: التثبيت الفوري كـ APK على أندرويد (موصى بها)
+                </span>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-bold">
+                  تلقائي
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                يقوم متصفح Chrome بنظام أندرويد بتوليد حزمة <strong>APK رسمية (WebAPK)</strong> وتثبيتها مباشرة داخل هاتفك لتظهر كأيقونة تطبيق رسمي في قائمة التطبيقات والإعدادات.
+              </p>
+              <button
+                onClick={() => {
+                  setShowApkModal(false);
+                  handleInstallClick();
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-lg"
+              >
+                <Download className="w-4 h-4" />
+                <span>تثبيت كـ تطبيق APK على هاتفي الآن</span>
+              </button>
+            </div>
+
+            {/* Option 2: PWABuilder Direct APK Package */}
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-400">
+                  الطريقة 2: تنزيل ملف .apk خام للمشاركة
+                </span>
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">
+                  ملف خارجي
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                إذا كنت تريد تنزيل ملف التطبيق بصيغة <strong>.apk</strong> كملف مستقل لإرساله إلى أصدقائك عبر البلوتوث أو الواتساب، يمكنك توليد ملف APK مباشرة عبر أداة Google الرسمية:
+              </p>
+              <a
+                href={`https://www.pwabuilder.com/package?site=${encodeURIComponent(getShareUrl())}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-lg text-center"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>توليد وتنزيل ملف APK كامل (PWABuilder)</span>
+              </a>
+            </div>
+
+            {/* Tips */}
+            <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 leading-relaxed">
+              💡 <strong>تأكيد:</strong> التطبيق مصمم ليتصل بفيشة الأعطال ELM327 بالبلوتوث المباشر بدون الحاجة لأي إنترنت على الإطلاق.
+            </div>
+
+            <button
+              onClick={() => setShowApkModal(false)}
+              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+            >
+              إغلاق
             </button>
           </div>
         </div>
