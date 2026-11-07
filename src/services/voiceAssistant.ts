@@ -1,10 +1,14 @@
 /**
  * Automotive Voice Alert & Audio Warning Engine
- * Powered by Web Speech API (Arabic Native TTS) + Web Audio API synthesizer
+ * Multi-Language: Egyptian Arabic ('ar_eg'), Standard Arabic ('ar_standard'), English ('en')
+ * Powered by Web Speech API + Web Audio API synthesizer
  */
+
+import { AppLanguage } from '../database/types';
 
 class AutomotiveVoiceAssistant {
   private isEnabled: boolean = true;
+  private currentLanguage: AppLanguage = 'ar_eg';
   private volume: number = 1.0;
   private rate: number = 0.95;
   private pitch: number = 1.0;
@@ -15,13 +19,20 @@ class AutomotiveVoiceAssistant {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      // Warm up voices
       if ('speechSynthesis' in window) {
         window.speechSynthesis.onvoiceschanged = () => {
-          this.getBestArabicVoice();
+          this.getBestVoice();
         };
       }
     }
+  }
+
+  public setLanguage(lang: AppLanguage) {
+    this.currentLanguage = lang;
+  }
+
+  public getLanguage(): AppLanguage {
+    return this.currentLanguage;
   }
 
   private getAudioContext(): AudioContext | null {
@@ -53,7 +64,6 @@ class AutomotiveVoiceAssistant {
       gain.connect(ctx.destination);
 
       if (type === 'critical') {
-        // High urgency alternating two-tone chime
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(880, now);
         osc.frequency.setValueAtTime(659, now + 0.15);
@@ -65,18 +75,16 @@ class AutomotiveVoiceAssistant {
         osc.start(now);
         osc.stop(now + 0.55);
       } else if (type === 'warning') {
-        // BMW / Mercedes style warm double chime
         osc.type = 'sine';
         osc.frequency.setValueAtTime(587.33, now); // D5
-        osc.frequency.setValueAtTime(783.99, now + 0.12); // G5
+        osc.frequency.setValueAtTime(783.99, now + 0.18); // G5
 
         gain.gain.setValueAtTime(0.25 * this.volume, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        gain.gain.exponentialRampToValueAtTime(0.005, now + 0.45);
 
         osc.start(now);
-        osc.stop(now + 0.45);
+        osc.stop(now + 0.48);
       } else if (type === 'connect') {
-        // Futuristic low-to-high ascending confirmation chime
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(440, now);
         osc.frequency.exponentialRampToValueAtTime(880, now + 0.25);
@@ -87,7 +95,6 @@ class AutomotiveVoiceAssistant {
         osc.start(now);
         osc.stop(now + 0.38);
       } else {
-        // Success pleasant chime
         osc.type = 'sine';
         osc.frequency.setValueAtTime(523.25, now);
         osc.frequency.setValueAtTime(659.25, now + 0.1);
@@ -100,23 +107,34 @@ class AutomotiveVoiceAssistant {
         osc.stop(now + 0.5);
       }
     } catch {
-      // AudioContext might be blocked until user gesture, safely ignore
+      // AudioContext might be blocked until user gesture
     }
   }
 
-  private getBestArabicVoice(): SpeechSynthesisVoice | null {
+  private getBestVoice(): SpeechSynthesisVoice | null {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
     const voices = window.speechSynthesis.getVoices();
-    // Prioritize Egyptian or Saudi or any Arabic voice
-    const arVoice = voices.find(v => v.lang.startsWith('ar') || v.lang === 'ar-EG' || v.lang === 'ar-SA');
-    return arVoice || voices.find(v => v.lang.includes('ar')) || null;
+    if (!voices || voices.length === 0) return null;
+
+    if (this.currentLanguage === 'en') {
+      const enVoice = voices.find(v => v.lang === 'en-US' || v.lang === 'en-GB') || voices.find(v => v.lang.startsWith('en'));
+      return enVoice || null;
+    }
+
+    if (this.currentLanguage === 'ar_eg') {
+      const egVoice = voices.find(v => v.lang === 'ar-EG') || voices.find(v => v.lang.startsWith('ar'));
+      return egVoice || null;
+    }
+
+    // 'ar_standard'
+    const saVoice = voices.find(v => v.lang === 'ar-SA') || voices.find(v => v.lang.startsWith('ar'));
+    return saVoice || null;
   }
 
   public speak(text: string, force = false, key?: string) {
     if (!this.isEnabled && !force) return;
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
-    // Throttle repeated alerts of the same key (e.g. don't repeat same code within 15 seconds)
     if (key) {
       const last = this.lastAlertTime.get(key) || 0;
       const now = Date.now();
@@ -137,14 +155,22 @@ class AutomotiveVoiceAssistant {
 
     this.isSpeaking = true;
     try {
-      window.speechSynthesis.cancel(); // Clear any hung speech
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'ar-SA';
+
+      if (this.currentLanguage === 'en') {
+        utterance.lang = 'en-US';
+      } else if (this.currentLanguage === 'ar_eg') {
+        utterance.lang = 'ar-EG';
+      } else {
+        utterance.lang = 'ar-SA';
+      }
+
       utterance.volume = this.volume;
       utterance.rate = this.rate;
       utterance.pitch = this.pitch;
 
-      const voice = this.getBestArabicVoice();
+      const voice = this.getBestVoice();
       if (voice) {
         utterance.voice = voice;
       }
@@ -173,31 +199,15 @@ class AutomotiveVoiceAssistant {
     }
   }
 
-  public setEnabled(val: boolean) {
-    this.isEnabled = val;
-    if (!val) {
+  public setEnabled(enabled: boolean) {
+    this.isEnabled = enabled;
+    if (!enabled) {
       this.stopSpeaking();
     }
   }
 
-  public getEnabled() {
+  public getIsEnabled(): boolean {
     return this.isEnabled;
-  }
-
-  public setVolume(val: number) {
-    this.volume = Math.max(0, Math.min(1, val));
-  }
-
-  public getVolume() {
-    return this.volume;
-  }
-
-  public setRate(val: number) {
-    this.rate = Math.max(0.5, Math.min(1.5, val));
-  }
-
-  public getRate() {
-    return this.rate;
   }
 }
 
