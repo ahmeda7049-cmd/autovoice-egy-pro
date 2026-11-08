@@ -48,7 +48,9 @@ import {
   ChevronUp,
   Layers,
   Car,
-  Info
+  Info,
+  Lock,
+  PlayCircle
 } from 'lucide-react';
 import { ConnectionStatus, DTCFault, EngineVitals, ScanReport } from './types/obd';
 import { obdService } from './services/bluetoothOBD';
@@ -61,8 +63,11 @@ import { DTCDefinition, DTCCategory, DTCManufacturer, AppLanguage, LocalizedDTC 
 import { detectDeviceHardware, DeviceHardwareStatus } from './services/hardwareCompatibility';
 import { I18N_DICTIONARY, UIStrings } from './services/i18n';
 import { SplashScreen } from './components/SplashScreen';
+import { admobService } from './services/admobService';
+import { RewardedAdModal } from './components/RewardedAdModal';
 
 const LANGUAGE_STORAGE_KEY = 'autovoice_app_language';
+const UNLOCKED_SOLUTIONS_STORAGE_KEY = 'autovoice_unlocked_dtcs';
 
 export default function App() {
   // Language State: 'ar_eg' (Egyptian), 'ar_standard' (Standard Arabic), 'en' (English)
@@ -102,6 +107,34 @@ export default function App() {
   const [showHardwareModal, setShowHardwareModal] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
 
+  // AdMob Rewarded Ad state & Unlocked DTC solutions
+  const [activeAdFaultCode, setActiveAdFaultCode] = useState<string | null>(null);
+  const [unlockedSolutions, setUnlockedSolutions] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(UNLOCKED_SOLUTIONS_STORAGE_KEY);
+        return saved ? JSON.parse(saved) : {};
+      } catch {
+        return {};
+      }
+    }
+    return {};
+  });
+
+  const handleUnlockSolution = (code: string) => {
+    setUnlockedSolutions((prev) => {
+      const updated = { ...prev, [code]: true };
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(UNLOCKED_SOLUTIONS_STORAGE_KEY, JSON.stringify(updated));
+        } catch {
+          // ignore
+        }
+      }
+      return updated;
+    });
+  };
+
   // DTC Encyclopedia Search State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<DTCCategory | 'all'>('all');
@@ -130,6 +163,9 @@ export default function App() {
   }, [language, t.dir]);
 
   useEffect(() => {
+    // Initialize Google Mobile Ads (AdMob) SDK
+    admobService.initialize();
+
     // Load saved inspection reports from localStorage
     const stored = reportStorage.getReports();
     setSavedReports(stored);
@@ -219,12 +255,23 @@ export default function App() {
         voiceAssistant.playChime('warning');
         const first = scannedFaults[0];
         const localized = dtcManager.resolveLocalizedDTC(first.code, language);
-        if (language === 'en') {
-          voiceAssistant.speak(`${t.voiceFaultIntroNotice} ${localized.code}. Issue: ${localized.problem}. Solution: ${localized.solution}`);
-        } else if (language === 'ar_standard') {
-          voiceAssistant.speak(`${t.voiceFaultIntroNotice} ${localized.code}. المشكلة: ${localized.problem}. الحل المقترح: ${localized.solution}`);
+        const isUnlocked = !!unlockedSolutions[first.code];
+        if (isUnlocked) {
+          if (language === 'en') {
+            voiceAssistant.speak(`${t.voiceFaultIntroNotice} ${localized.code}. Issue: ${localized.problem}. Solution: ${localized.solution}`);
+          } else if (language === 'ar_standard') {
+            voiceAssistant.speak(`${t.voiceFaultIntroNotice} ${localized.code}. المشكلة: ${localized.problem}. الحل المقترح: ${localized.solution}`);
+          } else {
+            voiceAssistant.speak(`${t.voiceFaultIntroNotice} ${localized.code}. المشكلة: ${localized.problem}. الحل: ${localized.solution}`);
+          }
         } else {
-          voiceAssistant.speak(`${t.voiceFaultIntroNotice} ${localized.code}. المشكلة: ${localized.problem}. الحل: ${localized.solution}`);
+          if (language === 'en') {
+            voiceAssistant.speak(`${t.voiceFaultIntroNotice} ${localized.code}. Issue: ${localized.problem}. Solution is locked. Tap watch ad to unlock the fix.`);
+          } else if (language === 'ar_standard') {
+            voiceAssistant.speak(`${t.voiceFaultIntroNotice} ${localized.code}. المشكلة: ${localized.problem}. خانة الحل مقفولة حالياً، يرجى مشاهدة الإعلان لفتح الحل.`);
+          } else {
+            voiceAssistant.speak(`${t.voiceFaultIntroNotice} ${localized.code}. المشكلة بالمصري: ${localized.problem}. خانة الحل مقفولة. دوس على زرار شاهد الإعلان علشان تاخد الحل.`);
+          }
         }
       }
     } finally {
@@ -300,12 +347,24 @@ export default function App() {
   const handleSpeakFaultLocalized = (code: string) => {
     const localized = dtcManager.resolveLocalizedDTC(code, language);
     voiceAssistant.playChime('warning');
-    if (language === 'en') {
-      voiceAssistant.speak(`Code ${localized.code}. ${localized.title}. Issue: ${localized.problem}. Recommended fix: ${localized.solution}.`, true);
-    } else if (language === 'ar_standard') {
-      voiceAssistant.speak(`رمز العطل ${localized.code}. ${localized.title}. المشكلة: ${localized.problem}. الإجراء الموصى به: ${localized.solution}.`, true);
+    const isUnlocked = !!unlockedSolutions[code];
+
+    if (isUnlocked) {
+      if (language === 'en') {
+        voiceAssistant.speak(`Code ${localized.code}. ${localized.title}. Issue: ${localized.problem}. Recommended fix: ${localized.solution}.`, true);
+      } else if (language === 'ar_standard') {
+        voiceAssistant.speak(`رمز العطل ${localized.code}. ${localized.title}. المشكلة: ${localized.problem}. الإجراء الموصى به: ${localized.solution}.`, true);
+      } else {
+        voiceAssistant.speak(`كود ${localized.code}. ${localized.title}. المشكلة بالمصري: ${localized.problem}. والحل: ${localized.solution}.`, true);
+      }
     } else {
-      voiceAssistant.speak(`كود ${localized.code}. ${localized.title}. المشكلة بالمصري: ${localized.problem}. والحل: ${localized.solution}.`, true);
+      if (language === 'en') {
+        voiceAssistant.speak(`Code ${localized.code}. ${localized.title}. Issue: ${localized.problem}. The solution is currently locked. Tap the watch ad button to unlock the solution.`, true);
+      } else if (language === 'ar_standard') {
+        voiceAssistant.speak(`رمز العطل ${localized.code}. ${localized.title}. المشكلة: ${localized.problem}. خانة الحل مقفولة حالياً. يرجى مشاهدة الإعلان لفتح الحل المقترح.`, true);
+      } else {
+        voiceAssistant.speak(`كود ${localized.code}. ${localized.title}. المشكلة بالمصري: ${localized.problem}. خانة الحل مقفولة ومش باينة. دوس على زرار شاهد الإعلان علشان تاخد الحل بتاع المشكله بتعتك.`, true);
+      }
     }
   };
 
@@ -848,10 +907,32 @@ export default function App() {
                                 {t.problemLabel}: <span className="text-red-600">{loc.problem}</span>
                               </div>
 
-                              {/* Solution */}
-                              <div className="text-sm sm:text-base font-bold text-emerald-800 mt-1.5 bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-200">
-                                {t.solutionLabel}: <span>{loc.solution}</span>
-                              </div>
+                              {/* Solution Section: Locked by default behind Rewarded Ad until user watches video */}
+                              {unlockedSolutions[fault.code] ? (
+                                <div className="text-sm sm:text-base font-bold text-emerald-800 mt-2 bg-emerald-50/90 p-3 rounded-2xl border-2 border-emerald-300 shadow-sm animate-fadeIn">
+                                  <div className="flex items-center gap-1.5 text-xs text-emerald-900 font-black mb-1">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                    <span>{t.solutionLabel} (تم فتح الحل بنجاح):</span>
+                                  </div>
+                                  <span className="text-slate-900 font-semibold">{loc.solution}</span>
+                                </div>
+                              ) : (
+                                <div className="mt-3 p-3.5 bg-gradient-to-r from-amber-500/10 via-slate-900/90 to-slate-950 rounded-2xl border border-amber-500/40 text-start shadow-md">
+                                  <div className="flex items-center gap-2 text-xs font-bold text-amber-400 mb-2.5">
+                                    <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+                                    <span>{t.solutionLabel}: خانة الحل مقفولة ومش باينة</span>
+                                  </div>
+                                  
+                                  {/* Big button with exact requested Arabic text */}
+                                  <button
+                                    onClick={() => setActiveAdFaultCode(fault.code)}
+                                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-sm sm:text-base shadow-lg shadow-amber-500/25 transition-all transform hover:scale-[1.01] active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2.5"
+                                  >
+                                    <PlayCircle className="w-5 h-5 text-slate-950 shrink-0" />
+                                    <span>شاهد الاعلان علشان تاخد الحل بتاع المشكله بتعتك</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
 
                             {/* Voice Button */}
@@ -1521,9 +1602,32 @@ export default function App() {
                                 {t.problemLabel}: <span className="text-red-600">{loc.problem}</span>
                               </div>
 
-                              <div className="text-sm sm:text-base font-bold text-emerald-800 mt-1.5 bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-200">
-                                {t.solutionLabel}: <span>{loc.solution}</span>
-                              </div>
+                              {/* Solution Section: Locked behind Rewarded Ad */}
+                              {unlockedSolutions[fault.code] ? (
+                                <div className="text-sm sm:text-base font-bold text-emerald-800 mt-2 bg-emerald-50/90 p-3 rounded-2xl border-2 border-emerald-300 shadow-sm animate-fadeIn">
+                                  <div className="flex items-center gap-1.5 text-xs text-emerald-900 font-black mb-1">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                    <span>{t.solutionLabel} (تم فتح الحل بنجاح):</span>
+                                  </div>
+                                  <span className="text-slate-900 font-semibold">{loc.solution}</span>
+                                </div>
+                              ) : (
+                                <div className="mt-3 p-3.5 bg-gradient-to-r from-amber-500/10 via-slate-900/90 to-slate-950 rounded-2xl border border-amber-500/40 text-start shadow-md">
+                                  <div className="flex items-center gap-2 text-xs font-bold text-amber-400 mb-2.5">
+                                    <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+                                    <span>{t.solutionLabel}: خانة الحل مقفولة ومش باينة</span>
+                                  </div>
+                                  
+                                  {/* Big button with exact requested Arabic text */}
+                                  <button
+                                    onClick={() => setActiveAdFaultCode(fault.code)}
+                                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-sm sm:text-base shadow-lg shadow-amber-500/25 transition-all transform hover:scale-[1.01] active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2.5"
+                                  >
+                                    <PlayCircle className="w-5 h-5 text-slate-950 shrink-0" />
+                                    <span>شاهد الاعلان علشان تاخد الحل بتاع المشكله بتعتك</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
 
                             <button
@@ -1999,6 +2103,19 @@ export default function App() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* GOOGLE ADMOB REWARDED VIDEO AD MODAL                      */}
+      {/* ========================================================= */}
+      {activeAdFaultCode && (
+        <RewardedAdModal
+          faultCode={activeAdFaultCode}
+          faultTitle={dtcManager.resolveLocalizedDTC(activeAdFaultCode, language).title}
+          onReward={(code) => handleUnlockSolution(code)}
+          onClose={() => setActiveAdFaultCode(null)}
+          language={language}
+        />
       )}
     </div>
   );
