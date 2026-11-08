@@ -60,6 +60,7 @@ import { dtcManager } from './database/dtcManager';
 import { DTCDefinition, DTCCategory, DTCManufacturer, AppLanguage, LocalizedDTC } from './database/types';
 import { detectDeviceHardware, DeviceHardwareStatus } from './services/hardwareCompatibility';
 import { I18N_DICTIONARY, UIStrings } from './services/i18n';
+import { SplashScreen } from './components/SplashScreen';
 
 const LANGUAGE_STORAGE_KEY = 'autovoice_app_language';
 
@@ -99,6 +100,7 @@ export default function App() {
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [showApkModal, setShowApkModal] = useState(false);
   const [showHardwareModal, setShowHardwareModal] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   // DTC Encyclopedia Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -358,14 +360,27 @@ export default function App() {
       dir={t.dir}
       className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white pb-14"
     >
+      {/* Launch Splash Screen */}
+      {showSplash && (
+        <SplashScreen
+          language={language}
+          onFinish={() => setShowSplash(false)}
+          totalCodes={dbVersion.totalCodes}
+        />
+      )}
+
       {/* Top Header */}
       <header className="border-b border-slate-800 bg-slate-900/95 sticky top-0 z-30 backdrop-blur-md">
         <div className="max-w-4xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
           
           {/* Logo & App Title */}
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-700 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 shrink-0">
-              <Stethoscope className="w-6 h-6" />
+            <div className="w-11 h-11 rounded-2xl overflow-hidden border border-cyan-500/40 shadow-lg shadow-cyan-500/20 shrink-0 bg-slate-900 group relative">
+              <img
+                src="/logo.png"
+                alt="AutoVoice EGY PRO"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
             </div>
             <div>
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -1768,8 +1783,8 @@ export default function App() {
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
-                <Share2 className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-2xl overflow-hidden border border-cyan-500/40 shadow-md shrink-0 bg-slate-950">
+                <img src="/logo.png" alt="AutoVoice EGY PRO" className="w-full h-full object-cover" />
               </div>
               <div>
                 <h3 className="text-lg font-black text-white">
@@ -1840,8 +1855,8 @@ export default function App() {
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                <Smartphone className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-2xl overflow-hidden border border-emerald-500/40 shadow-md shrink-0 bg-slate-950">
+                <img src="/logo.png" alt="AutoVoice EGY PRO" className="w-full h-full object-cover" />
               </div>
               <div>
                 <h3 className="text-lg font-black text-white">
@@ -1910,8 +1925,8 @@ export default function App() {
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
-                <Package className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-2xl overflow-hidden border border-amber-500/40 shadow-md shrink-0 bg-slate-950">
+                <img src="/logo.png" alt="AutoVoice EGY PRO" className="w-full h-full object-cover" />
               </div>
               <div>
                 <h3 className="text-lg font-black text-white">

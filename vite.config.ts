@@ -11,12 +11,12 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
+        includeAssets: ['favicon.ico', 'favicon.png', 'apple-touch-icon.png', 'icon.svg', 'logo.png'],
         manifest: {
           id: '/',
-          name: 'OBD2 فاحص أعطال السيارات الذكي',
-          short_name: 'OBD2 فاحص',
-          description: 'تطبيق فحص وقراءة أعطال السيارات الحديثة بالبلوتوث مع كشف ذاتي وتنبيهات صوتية فورية',
+          name: 'AutoVoice EGY PRO - فاحص أعطال السيارات',
+          short_name: 'AutoVoice EGY',
+          description: 'فحص وتشخيص أعطال السيارات بالبلوتوث ELM327 مع تنبيهات صوتية وموسوعة أعطال شاملة',
           theme_color: '#0f172a',
           background_color: '#090d16',
           display: 'standalone',
